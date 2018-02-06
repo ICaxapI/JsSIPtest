@@ -1,0 +1,41 @@
+doctype html
+html(lang='ru')
+    head
+        meta(charset='utf-8')
+        meta(name='viewport', content='width=device-width, initial-scale=1, shrink-to-fit=no')
+        meta(name='description', content='')
+        meta(name='author', content='')
+        link(rel='icon', href='/images/favicon.png')
+        title= header
+        link(href='/stylesheets/bootstrap.min.css', rel='stylesheet')
+        link(href='/stylesheets/index.css', rel='stylesheet')
+    body.text-center
+        form.form-signin(action='none', id='auth')
+            label.sr-only(for='inputServer') Server
+            input#inputServer.form-control(type='text', placeholder='Server', name='server', autofocus='', required='')
+            label.sr-only(for='inputSIP') SIP
+            //pattern="sip:*@*"
+            input#inputSIP.form-control(type='text', placeholder='SIP', name='sip', required='')
+            label.sr-only(for='inputPassword') Password
+            input#inputPassword.form-control(type='password', placeholder='Password', autocomplete= 'current-password', name='password')
+            .checkbox.mb-3
+                label
+                    input(id='remembermeAuth', type='checkbox', name='rememberme' onclick="if(!$('remembermeAuth').checked){localStorage.setItem('sip', ' ')}")
+                |  Запомнить
+            .checkbox.mb-3
+                label
+                    input(id='autoAuth', type='checkbox', name='autoAuth' onclick="localStorage.setItem('auto', $('autoAuth').checked)")
+                |  Входить автоматически
+            button.btn.btn-lg.btn-primary.btn-block(type='submit') Войти
+            h5(id='statusAuth' style=('margin-top:10pt; color: red'))    
+            p.text-muted AdSolution © 2017-2018
+        div(id='successAuth', style='display: none; width: 100%; max-width: 330px; padding: 15px;')
+            h4#statusCall Успешный вход!
+            input#inputNumber.form-control(type='text', placeholder='SIP for the call', name='inputNumber', required='')
+            label.sr-only(for='inputNumber') SIP for the call
+            h4
+            button#call.btn.btn-lg.btn-primary.btn-block(name='logout', onclick="call($('inputNumber').value);") Позвонить
+            h4
+            button#logout.btn.btn-lg.btn-primary.btn-block(name='logout', onclick='logout();') Выйти
+script(src='/javascripts/jssip.js')
+script(src='/javascripts/call.js')
