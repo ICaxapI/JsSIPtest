@@ -9,6 +9,7 @@ html(lang='ru')
         title= header
         link(href='/stylesheets/bootstrap.min.css', rel='stylesheet')
         link(href='/stylesheets/index.css', rel='stylesheet')
+        link(href='/stylesheets/toastr.css', rel='stylesheet')
     body.text-center
         form.form-signin(action='none', id='auth')
             label.sr-only(for='inputServer') Server
@@ -20,11 +21,11 @@ html(lang='ru')
             input#inputPassword.form-control(type='password', placeholder='Password', autocomplete= 'current-password', name='password')
             .checkbox.mb-3
                 label
-                    input(id='remembermeAuth', type='checkbox', name='rememberme' onclick="if(!$('remembermeAuth').checked){localStorage.setItem('sip', ' ')}")
+                    input(id='remembermeAuth', type='checkbox', name='rememberme' onclick="if(!f('remembermeAuth').checked){localStorage.setItem('sip', ' ')}")
                 |  Запомнить
             .checkbox.mb-3
                 label
-                    input(id='autoAuth', type='checkbox', name='autoAuth' onclick="localStorage.setItem('auto', $('autoAuth').checked)")
+                    input(id='autoAuth', type='checkbox', name='autoAuth' onclick="localStorage.setItem('auto', f('autoAuth').checked)")
                 |  Входить автоматически
             button.btn.btn-lg.btn-primary.btn-block(type='submit') Войти
             h5(id='statusAuth' style=('margin-top:10pt; color: red'))    
@@ -34,8 +35,12 @@ html(lang='ru')
             input#inputNumber.form-control(type='text', placeholder='SIP for the call', name='inputNumber', required='')
             label.sr-only(for='inputNumber') SIP for the call
             h4
-            button#call.btn.btn-lg.btn-primary.btn-block(name='logout', onclick="call($('inputNumber').value);") Позвонить
+            button#call.btn.btn-lg.btn-primary.btn-block(name='call', onclick="call(f('inputNumber').value);") Позвонить
             h4
             button#logout.btn.btn-lg.btn-primary.btn-block(name='logout', onclick='logout();') Выйти
+        audio(id='myMultimedia')
+        audio(id='theirMultimedia')
+script(src='/javascripts/jquery.js')
+script(src='/javascripts/toastr.js')
 script(src='/javascripts/jssip.js')
 script(src='/javascripts/call.js')
