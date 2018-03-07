@@ -1,88 +1,57 @@
-//JsSIP.debug.enable('JsSIP:*');
-
 var ua;
 var call;
 var remoteAudio = f('myMultimedia');
-var session; // outgoing call session here
-var local_stream;
+var session;
 var myMultimedia;
 var remote_stream;
-var theirMultimedia;
 var nowCall = false;
+var callSession;
 
 var eventHandlersCall = {
-    'progress': function (data) {
-        //if (data.originator === 'remote') data.response.body = null;
-        //f('statusCall').innerHTML = 'Попытка звонка...';
+    'progress': function (e) { //когда звонок в процессе
         f('call').innerHTML = 'Завершить';
         info("Дозвон...", "", 10000);
         nowCall = true;
     },
 
-    'failed': function (e) {
-        // if (e.hasOwnProperty(value)) {
-        //     $('statusCall').innerHTML = 'Звонок не удался в связи с' + e.data.value;
-        // } else {
-        //f('statusCall').innerHTML = 'Звонок не удался в связи с ' + e.cause;
-        // }
+    'failed': function (e) { //при ошибке в попытке звонка
         warning("Звонок не удался", e.cause, 60000);
-        console.log('Не удался звонок');
         f('call').innerHTML = 'Позвонить';
         nowCall = false;
     },
 
-    'ended': function (e) {
-        // if (e.hasOwnProperty(value)) {
-        //     $('statusCall').innerHTML = 'Звонок закончился в связи с' + e.data.value;
-        // } else {
-        //f('statusCall').innerHTML = 'Звонок закончился в связи с ' + e.cause;
+    'ended': function (e) { //при завершении звонка
         info("Звонок завершён", e.cause, 10000);
         f('call').innerHTML = 'Позвонить';
         nowCall = false;
-        // }
     },
 
-    'confirmed': function (e) {
-        local_stream = session.connection.getLocalStreams()[0];
-        console.log(local_stream); //If i print this variable I do get a media stream
-        console.log(local_stream.getAudioTracks());
-        console.log('CALL CONFIRMED');
+    'confirmed': function (e) { //когда наш вызов приняли
         remote_stream = session.connection.getRemoteStreams()[0];
-        console.log(remote_stream);
-        console.log(remote_stream.getAudioTracks());
-        remoteAudio.src = window.URL.createObjectURL(remote_stream);
+        remoteAudio.srcObject = remote_stream;
         remoteAudio.play();
-        //remoteAudio.src = e.stream.getAudioTracks();
-        //remoteAudio.play();
-        // myMultimedia = JsSIP.rtcninja.attachMediaStream(myMultimedia, local_stream); //here I get "element is null"
+    },
+
+    'addstream': function (e) { //при взятии трубки
+        console.log('addstream');
+        remoteAudio.srcObject = event.stream;
+        remoteAudio.play();
+    },
+
+    'refer': function (e) { //когда входящий звонок только пришёл
+        //session.reject(); //положить трубку
+        console.log('refer');
+        callSession = e.session;
+        var numberRegexp = /\"(\d+)\"/;
+        var fromNumber = (numberRegexp.exec(e.request.headers.From[0].raw))[1];
+        var toNumber = (numberRegexp.exec(e.request.headers.Contact[0].raw))[1].slice(1);
+        incomingCall(fromNumber, toNumber);
     }
-    // 'addstream': function (e) {
-    //     remote_stream = e.stream;
-    //     console.log(remote_stream); //If i print this variable I do get a media stream
-    //     console.log('REMOTE STREAM RECEIVED');
-    //     console.log(e);
-    //     console.trace('remote stream added ' +e.stream.getAudioTracks().length);
-    //     // theirMultimedia = JsSIP.rtcninja.attachMediaStream(theirMultimedia, remote_stream); //here I get "element is null"
-    // }
-    // 'newRTCSession': function(data){
-    //     console.log("newSession");
-    //     var session = data.session;
-    //
-    //     if (session.direction === "incoming") {
-    //         // answer incoming call
-    //         session.answer(optionsCall);
-    //     }
-    // }
 };
 
 var optionsCall = {
     'eventHandlers': eventHandlersCall,
     'mediaConstraints': {'audio': true, 'video': false},
-    //'pcConfig': {
-    //'iceServers': [
-    //    { 'urls': ['stun:stun.l.google.com:19302'] }
-    //]
-    //}
     media: {
         remote: {
             audio: document.getElementById('myMultimedia')
@@ -92,7 +61,7 @@ var optionsCall = {
 
 function auth(uri, pass, server) {
     try {
-        var socket = new JsSIP.WebSocketInterface(server); //ws://212.224.113.123:8088/ws
+        var socket = new JsSIP.WebSocketInterface(server);
     } catch(e) {
         if (e.name !== "SecurityError") {
             error("Ошибка браузера", "Ошибка безопасности", 20000);
@@ -100,26 +69,18 @@ function auth(uri, pass, server) {
         }
     }
 
+    var hashArgs = server.split(":");  //ws://realm:xxxx/ws -> [{wss}{//realm}{xxxx/ws}]
+    hashArgs = hashArgs[1].split("/"); // //realm -> [{}{}{realm}]
+
     var configuration = {
         sockets: [socket],
-        uri: uri, //sip:alextest@212.224.113.123
-        password: pass, //3B2687A8eb43748C
-        realm   : '159.89.100.53',
-        //transport: 'wss',
+        uri: uri,
+        password: pass,
+        realm   : hashArgs[2],
         no_answer_timeout: 120,
         session_timers: false,
-        session_timers_refresh_method: 'invite',
-        // 'extraHeaders': ['X-Foo: foo', 'X-Bar: bar'],
-        // 'mediaConstraints': {'audio': true, 'video':false},
-        // 'rtcOfferConstraints' : {'offerToReceiveAudio' : true } ,
-        //
-        // mandatory: [{
-        //     OfferToReceiveAudio: true,
-        //     OfferToReceiveVideo: false
-        // },{'DtlsSrtpKeyAgreement': true} ]
-
+        session_timers_refresh_method: 'invite'
     };
-
 
     try {
         ua = new JsSIP.UA(configuration);
@@ -130,23 +91,20 @@ function auth(uri, pass, server) {
     }
 
     ua.on('connected', function (e) {
-        console.log('Подключенно');
         info("Подключенно", "Подключен к серверу", 1000);
     });
 
     ua.on('registered', function (e) {
-        console.log('Зарегистрирован');
         authForm.success();
     });
 
     ua.on('unregistered', function (e) {
-        console.log('Разрегистрирован');
         unregisterIvent();
+        toastr.remove()
         info("Разрегистрирован", "Успешный выход", 1000);
     });
 
     ua.on('registrationFailed', function (e) {
-        console.log('Регистрация не удалась');
         authForm.error();
     });
 
@@ -155,10 +113,14 @@ function auth(uri, pass, server) {
 
 function call(sip) {
     if (!nowCall) {
-        session = ua.call(sip, optionsCall); //'sip:79043402122@212.224.113.123'
+        session = ua.call(sip, optionsCall);
     } else {
         ua.terminateSessions();
     }
+}
+
+function answerCall() {
+    callSession.answer(optionsCall);
 }
 
 function f(id) {
@@ -175,7 +137,6 @@ Form.prototype = {
         this.error = error;
         this.enabled = true; // включена
 
-        // по событию формы onsubmit
         var _this = this, listener = function() {
             _this.process();
             var ev = arguments[0] || window.event;
@@ -184,8 +145,6 @@ Form.prototype = {
 
         if(this.form.addEventListener)
             this.form.addEventListener('submit', listener, false);
-        // для IE
-        //@cc_on this.form.attachEvent('onsubmit', listener);
     },
 
     process: function() {
@@ -206,8 +165,6 @@ function submit() {
     authForm.enabled = false;
     auth(f('inputSIP').value, f('inputPassword').value, f('inputServer').value)
 }
-
-//auth("sip:7812@159.89.100.53", "cock", "ws://159.89.100.53:8088/ws");
 
 authForm.init(
     //submit
@@ -236,10 +193,8 @@ authForm.init(
 
     // error
     function() {
-        //f('statusAuth').innerHTML = 'Неправильный SIP или пароль.';
         error("Ошибка аутентификации", "Неправильный SIP или Пароль", 0);
         this.enabled = true;
-        //this.message('Регистрация не удалась');
     }
 );
 
@@ -263,7 +218,7 @@ function unregisterIvent() {
     f('auth').style.display = "block";
 }
 
-toastr.options = {
+var defOpt = {
     "closeButton": true,
     "debug": false,
     "newestOnTop": true,
@@ -279,27 +234,58 @@ toastr.options = {
     "hideMethod": "fadeOut"
 };
 
+var callOpt = {
+    "closeButton": false,
+    "debug": false,
+    "newestOnTop": false,
+    "progressBar": false,
+    "positionClass": "toast-top-full-width",
+    "preventDuplicates": false,
+    "onclick": null,
+    "showDuration": "300",
+    "hideDuration": "1000",
+    "timeOut": 0,
+    "extendedTimeOut": 0,
+    "showEasing": "swing",
+    "hideEasing": "linear",
+    "showMethod": "fadeIn",
+    "hideMethod": "fadeOut",
+    "tapToDismiss": false
+};
+
 function error(title, msg ,time) {
+    toastr.options = defOpt;
     toastr.options.timeOut = time;
     toastr.options.extendedTimeOut = time;
     toastr.error(msg, title);
 }
 
 function info(title, msg ,time) {
+    toastr.options = defOpt;
     toastr.options.timeOut = time;
     toastr.options.extendedTimeOut = time;
     toastr.info(msg, title);
 }
 
 function success(title, msg ,time) {
+    toastr.options = defOpt;
     toastr.options.timeOut = time;
     toastr.options.extendedTimeOut = time;
     toastr.success(msg, title);
 }
 
 function warning(title, msg ,time) {
+    toastr.options = defOpt;
     toastr.options.timeOut = time;
     toastr.options.extendedTimeOut = time;
     toastr.warning(msg, title);
+}
+
+function incomingCall(fromNumber, toNumber) {
+    toastr.options = callOpt;
+    toastr.options.timeOut = 20000;
+    toastr.options.extendedTimeOut = 20000;
+    toastr.warning(fromNumber + " => " + toNumber + "<br /><br /><button onclick='answerCall();' type='button'" +
+                   " class='btn clear'>Ответить</button>", "Входящий звонок!");
 }
 
